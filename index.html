@@ -21,7 +21,6 @@
       cursor: default;
     }
 
-    /* Full-screen slideshow */
     .slideshow {
       position: absolute;
       inset: 0;
@@ -43,7 +42,6 @@
       z-index: 2;
     }
 
-    /* First slide – pure title */
     .slide.title-slide {
       background: #050505;
       display: flex;
@@ -78,7 +76,6 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* Soft dark gradient on image slides so they feel cinematic */
     .overlay {
       position: absolute;
       inset: 0;
@@ -106,7 +103,6 @@
       pointer-events: none;
     }
 
-    /* Minimal bottom controls (appear after start) */
     .controls {
       position: absolute;
       bottom: 2.2rem;
@@ -181,7 +177,6 @@
       text-align: center;
     }
 
-    /* Big start overlay (browsers block autoplay with sound) */
     .start-overlay {
       position: absolute;
       inset: 0;
@@ -246,7 +241,6 @@
 </head>
 <body>
 
-  <!-- START OVERLAY (one click unlocks autoplay – browsers require this) -->
   <div class="start-overlay" id="startOverlay">
     <div class="big-title">Through the Times</div>
     <div class="start-btn">
@@ -256,13 +250,11 @@
   </div>
 
   <div class="slideshow" id="slideshow">
-    <!-- SLIDE 0: Title only -->
     <div class="slide title-slide active">
       <div class="title">Through the Times</div>
       <div class="sub">Dani California</div>
     </div>
 
-    <!-- SLIDES 1–8: Placeholder images (replace these later with your photos) -->
     <div class="slide" style="background-image: url('https://picsum.photos/id/1015/1920/1080')"></div>
     <div class="slide" style="background-image: url('https://picsum.photos/id/1018/1920/1080')"></div>
     <div class="slide" style="background-image: url('https://picsum.photos/id/1025/1920/1080')"></div>
@@ -290,11 +282,11 @@
     <div class="progress-wrap" id="progressWrap">
       <div class="progress-bar" id="progressBar"></div>
     </div>
-    <span class="time" id="timeDisplay">0:00 / 4:42</span>
+    <span class="time" id="timeDisplay">— / —</span>
   </div>
 
   <audio id="song" loop preload="auto">
-    <source src="Dani California.m4a" type="audio/mp4">
+    <source src="dani-california.m4a" type="audio/mp4">
   </audio>
 
   <script>
@@ -312,16 +304,13 @@
     let slideTimer = null;
     let started = false;
 
-    // Timing
-    const TITLE_DURATION = 5500;   // stay on "Through the Times" for 5.5s
-    const IMAGE_DURATION = 5000;   // each image after that
+    const TITLE_DURATION = 5500;
+    const IMAGE_DURATION = 5000;
 
     function showSlide(index) {
       slides[current].classList.remove('active');
       current = (index + slides.length) % slides.length;
       slides[current].classList.add('active');
-
-      // Dark overlay only on the photo slides
       if (current === 0) {
         overlay.classList.remove('visible');
       } else {
@@ -353,36 +342,61 @@
     }
 
     function updateProgress() {
-      if (audio.duration) {
+      if (audio.duration && isFinite(audio.duration)) {
         progressBar.style.width = (audio.currentTime / audio.duration * 100) + '%';
         timeDisplay.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
       }
     }
 
+    function showAudioError(msg) {
+      const hint = startOverlay.querySelector('.start-hint');
+      if (hint) {
+        hint.textContent = msg;
+        hint.style.color = '#ff6b6b';
+        hint.style.letterSpacing = '0.1em';
+        hint.style.maxWidth = '80%';
+        hint.style.textAlign = 'center';
+      }
+    }
+
+    audio.addEventListener('error', () => {
+      console.error('Audio error:', audio.error);
+      showAudioError('Audio file missing. Upload dani-california.m4a to this repo.');
+    });
+
+    audio.addEventListener('loadeddata', () => {
+      console.log('Audio loaded, duration:', audio.duration);
+    });
+
+    audio.load();
+
     function startExperience() {
       if (started) return;
       started = true;
 
-      // Hide the click-to-start screen
       startOverlay.classList.add('hidden');
-
-      // Show the bottom controls after a short moment
       setTimeout(() => controls.classList.add('show'), 1200);
 
-      // Start the music
-      audio.play().catch(err => console.log('Audio play:', err));
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => console.log('Audio playing'))
+          .catch(err => {
+            console.error('Play failed:', err);
+            showAudioError('Could not play audio: ' + err.message);
+            startOverlay.classList.remove('hidden');
+            started = false;
+          });
+      }
 
-      // Begin the slideshow (we are already on the title slide)
       scheduleNext();
     }
 
-    // One click starts everything
     startOverlay.addEventListener('click', startExperience);
 
-    // Controls
     document.getElementById('playBtn').addEventListener('click', () => {
       if (audio.paused) {
-        audio.play();
+        audio.play().catch(e => console.error(e));
         scheduleNext();
       } else {
         audio.pause();
@@ -410,7 +424,6 @@
       pauseIcon.style.display = 'none';
     });
 
-    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (!started) {
         if (e.code === 'Space' || e.code === 'Enter') startExperience();
