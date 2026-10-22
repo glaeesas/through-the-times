@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Through the Times</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #000;
+      color: #fff;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      cursor: default;
+    }
+
+    /* Full-screen slideshow */
+    .slideshow {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0;
+      transition: opacity 2s ease-in-out;
+      will-change: opacity;
+    }
+
+    .slide.active {
+      opacity: 1;
+      z-index: 2;
+    }
+
+    /* First slide – pure title */
+    .slide.title-slide {
+      background: #050505;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+
+    .slide.title-slide .title {
+      font-size: clamp(2.8rem, 9vw, 7rem);
+      font-weight: 200;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #fff;
+      text-shadow: 0 0 40px rgba(255, 255, 255, 0.15);
+      opacity: 0;
+      animation: fadeInTitle 2.5s ease-out 0.8s forwards;
+    }
+
+    .slide.title-slide .sub {
+      margin-top: 1.4rem;
+      font-size: clamp(0.85rem, 2vw, 1.2rem);
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.55);
+      opacity: 0;
+      animation: fadeInTitle 2.5s ease-out 1.6s forwards;
+    }
+
+    @keyframes fadeInTitle {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Soft dark gradient on image slides so they feel cinematic */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.35) 0%,
+        rgba(0, 0, 0, 0.1) 40%,
+        rgba(0, 0, 0, 0.4) 100%
+      );
+      z-index: 3;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1.5s ease;
+    }
+
+    .overlay.visible {
+      opacity: 1;
+    }
+
+    .vignette {
+      position: absolute;
+      inset: 0;
+      box-shadow: inset 0 0 180px rgba(0, 0, 0, 0.55);
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    /* Minimal bottom controls (appear after start) */
+    .controls {
+      position: absolute;
+      bottom: 2.2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 1.4rem;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      padding: 0.75rem 1.5rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 1s ease;
+    }
+
+    .controls.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .btn {
+      background: transparent;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.15s;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: scale(1.08);
+    }
+
+    .btn svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    .progress-wrap {
+      width: 130px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #fff;
+      border-radius: 2px;
+    }
+
+    .time {
+      font-size: 0.78rem;
+      font-variant-numeric: tabular-nums;
+      opacity: 0.8;
+      min-width: 82px;
+      text-align: center;
+    }
+
+    /* Big start overlay (browsers block autoplay with sound) */
+    .start-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      cursor: pointer;
+      transition: opacity 1.2s ease, visibility 1.2s;
+    }
+
+    .start-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .start-overlay .big-title {
+      font-size: clamp(2.5rem, 8vw, 5.5rem);
+      font-weight: 200;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 2.5rem;
+      opacity: 0.95;
+    }
+
+    .start-btn {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    .start-btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: #fff;
+      transform: scale(1.08);
+    }
+
+    .start-btn svg {
+      width: 32px;
+      height: 32px;
+      fill: #fff;
+      margin-left: 4px;
+    }
+
+    .start-hint {
+      margin-top: 1.8rem;
+      font-size: 0.85rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- START OVERLAY (one click unlocks autoplay – browsers require this) -->
+  <div class="start-overlay" id="startOverlay">
+    <div class="big-title">Through the Times</div>
+    <div class="start-btn">
+      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    </div>
+    <div class="start-hint">Click to begin</div>
+  </div>
+
+  <div class="slideshow" id="slideshow">
+    <!-- SLIDE 0: Title only -->
+    <div class="slide title-slide active">
+      <div class="title">Through the Times</div>
+      <div class="sub">Dani California</div>
+    </div>
+
+    <!-- SLIDES 1–8: Placeholder images (replace these later with your photos) -->
+    <div class="slide" style="background-image: url('https://picsum.photos/id/1015/1920/1080')"></div>
+    <div class="slide" style="background-image: url('https://picsum.photos/id/1018/1920/1080')"></div>
+    <div class="slide" style="background-image: url('https://picsum.photos/id/1025/1920/1080')"></div>
+    <div class="slide" style="background-image: url('https://picsum.photos/id/1039/1920/1080')"></div>
+    <div class="slide" style="background-image: url('https://picsum.photos/id/1043/1920/1080')"></div>
+    <div class="slide" style="background-image: url('https://picsum.photos/id/1060/1920/1080')"></div>
+    <div class="slide" style="background-image: url('https://picsum.photos/id/1074/1920/1080')"></div>
+    <div class="slide" style="background-image: url('https://picsum.photos/id/1080/1920/1080')"></div>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+  <div class="vignette"></div>
+
+  <div class="controls" id="controls">
+    <button class="btn" id="prevBtn" title="Previous">
+      <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+    </button>
+    <button class="btn" id="playBtn" title="Play / Pause">
+      <svg id="playIcon" viewBox="0 0 24 24" style="display:none"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="pauseIcon" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+    </button>
+    <button class="btn" id="nextBtn" title="Next">
+      <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+    </button>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <span class="time" id="timeDisplay">0:00 / 4:42</span>
+  </div>
+
+  <audio id="song" loop preload="auto">
+    <source src="Dani California.m4a" type="audio/mp4">
+  </audio>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    const overlay = document.getElementById('overlay');
+    const controls = document.getElementById('controls');
+    const startOverlay = document.getElementById('startOverlay');
+    const audio = document.getElementById('song');
+    const playIcon = document.getElementById('playIcon');
+    const pauseIcon = document.getElementById('pauseIcon');
+    const progressBar = document.getElementById('progressBar');
+    const timeDisplay = document.getElementById('timeDisplay');
+
+    let current = 0;
+    let slideTimer = null;
+    let started = false;
+
+    // Timing
+    const TITLE_DURATION = 5500;   // stay on "Through the Times" for 5.5s
+    const IMAGE_DURATION = 5000;   // each image after that
+
+    function showSlide(index) {
+      slides[current].classList.remove('active');
+      current = (index + slides.length) % slides.length;
+      slides[current].classList.add('active');
+
+      // Dark overlay only on the photo slides
+      if (current === 0) {
+        overlay.classList.remove('visible');
+      } else {
+        overlay.classList.add('visible');
+      }
+    }
+
+    function nextSlide() {
+      showSlide(current + 1);
+      scheduleNext();
+    }
+
+    function prevSlide() {
+      showSlide(current - 1);
+      scheduleNext();
+    }
+
+    function scheduleNext() {
+      clearTimeout(slideTimer);
+      const delay = current === 0 ? TITLE_DURATION : IMAGE_DURATION;
+      slideTimer = setTimeout(nextSlide, delay);
+    }
+
+    function formatTime(sec) {
+      if (isNaN(sec)) return '0:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function updateProgress() {
+      if (audio.duration) {
+        progressBar.style.width = (audio.currentTime / audio.duration * 100) + '%';
+        timeDisplay.textContent = `${formatTime(audio.currentTime)} / ${formatTime(audio.duration)}`;
+      }
+    }
+
+    function startExperience() {
+      if (started) return;
+      started = true;
+
+      // Hide the click-to-start screen
+      startOverlay.classList.add('hidden');
+
+      // Show the bottom controls after a short moment
+      setTimeout(() => controls.classList.add('show'), 1200);
+
+      // Start the music
+      audio.play().catch(err => console.log('Audio play:', err));
+
+      // Begin the slideshow (we are already on the title slide)
+      scheduleNext();
+    }
+
+    // One click starts everything
+    startOverlay.addEventListener('click', startExperience);
+
+    // Controls
+    document.getElementById('playBtn').addEventListener('click', () => {
+      if (audio.paused) {
+        audio.play();
+        scheduleNext();
+      } else {
+        audio.pause();
+        clearTimeout(slideTimer);
+      }
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', nextSlide);
+    document.getElementById('prevBtn').addEventListener('click', prevSlide);
+
+    document.getElementById('progressWrap').addEventListener('click', (e) => {
+      if (!audio.duration) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      audio.currentTime = pct * audio.duration;
+    });
+
+    audio.addEventListener('timeupdate', updateProgress);
+    audio.addEventListener('play', () => {
+      playIcon.style.display = 'none';
+      pauseIcon.style.display = 'block';
+    });
+    audio.addEventListener('pause', () => {
+      playIcon.style.display = 'block';
+      pauseIcon.style.display = 'none';
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (!started) {
+        if (e.code === 'Space' || e.code === 'Enter') startExperience();
+        return;
+      }
+      if (e.code === 'Space') {
+        e.preventDefault();
+        document.getElementById('playBtn').click();
+      } else if (e.code === 'ArrowRight') nextSlide();
+      else if (e.code === 'ArrowLeft') prevSlide();
+    });
+  </script>
+</body>
+</html>
